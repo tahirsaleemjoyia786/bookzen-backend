@@ -12,6 +12,8 @@
 const http = require('http');
 const { createStore } = require('./store');
 const { tryBook, fmtMin } = require('./booking');
+const { verifyIdToken } = require('./firebase_auth');
+
 function sendJson(res, status, obj) {
   const body = JSON.stringify(obj, null, 2);
   res.writeHead(status, { 'Content-Type': 'application/json' });
@@ -142,7 +144,27 @@ function createServer(store) {
         return sendJson(res, 200, { ok: true, businesses: await store.listBusinesses() });
       }
 
-      return sendJson(res, 404, { ok: false, error: 'Not found. See README.md for endpoints.' });
+      // --- Verify a Firebase OTP login (Phase 3 Stage B) ---
+// POST /auth/verify { idToken } -> { ok, uid, phone }
+// The app calls this right after OTP so the SERVER, not just
+// the app, confirms the phone number is real.
+if (req.method === 'POST' && path === '/auth/verify') {
+  const body = await readBody(req);
+  if (!body.idToken) {
+    return sendJson(res, 400, { ok: false, error: 'idToken is required.' });
+  }
+  try {
+    const { uid, phone } = await verifyIdToken(body.idToken);
+    return sendJson(res, 200, { ok: true, uid, phone });
+  } catch (e) {
+    if (e && e.code === 'NOT_CONFIGURED') {
+      return sendJson(res, 503, { ok: false, error: 'OTP verification is not configured on the server yet (FIREBASE_SERVICE_ACCOUNT missing).' });
+    }
+    return sendJson(res, 401, { ok: false, error: 'Invalid or expired token.' });
+  }
+}
+
+return sendJson(res, 404, { ok: false, error: 'Not found. See README.md for endpoints.' });
     } catch (e) {
       return sendJson(res, 500, { ok: false, error: String(e && e.message ? e.message : e) });
     }
@@ -156,7 +178,8 @@ if (require.main === module) {
   server.listen(port, () => {
     console.log(`BookZen MVP backend (DEMO) listening on http://localhost:${port}`);
     console.log(process.env.DATABASE_URL ? 'Store: Postgres (DATABASE_URL set)' : 'Store: in-memory (data resets on restart — see SUPABASE-GUIDE.md for the real database)');
-    console.log('Endpoints: GET /health, POST /webhook, POST /signup, POST /admin/approve, GET /bookings');
+    console.log('Endpoints: GET /health, POST /webhook, POST /signup, POST /admin/approve, GET /bookings, POST /auth/verify
+');
   });
 }
 
