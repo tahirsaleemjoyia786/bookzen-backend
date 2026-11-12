@@ -178,8 +178,8 @@ if (require.main === module) {
   server.listen(port, () => {
     console.log(`BookZen MVP backend (DEMO) listening on http://localhost:${port}`);
     console.log(process.env.DATABASE_URL ? 'Store: Postgres (DATABASE_URL set)' : 'Store: in-memory (data resets on restart — see SUPABASE-GUIDE.md for the real database)');
-    console.log('Endpoints: GET /health, POST /webhook, POST /signup, POST /admin/approve, GET /bookings, POST /auth/verify
-');
+    console.log('Endpoints: GET /health, POST /webhook, POST /signup, POST /admin/approve, GET /bookings, POST /auth/verify');
+
   });
 }
 
