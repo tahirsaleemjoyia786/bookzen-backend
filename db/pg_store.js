@@ -307,11 +307,21 @@ function createPgStore(pool) {
       const user = users.find((u) => u.id === userId);
       if (!user) return [];
       if (user.role === 'SUPER_ADMIN') return appointments;
-      if (user.role === 'BUSINESS_OWNER' || user.role === 'STAFF') {
+      if (user.role === 'BUSINESS_OWNER') {
         return appointments.filter((a) => a.businessId === user.businessId);
+      }
+      if (user.role === 'STAFF') {
+        return appointments.filter(
+          (a) => a.businessId === user.businessId && a.staffId === user.staffId
+        );
       }
       return [];
     },
+    async getUserByPhone(phone) {
+      await ready;
+      return users.find((u) => u.phone === phone) || null;
+    },
+
     async addAppointment(appt) {
       const row = { id: await nextId('appt'), status: 'CONFIRMED', createdAt: new Date().toISOString(), ...appt };
       await db.query(

@@ -106,11 +106,19 @@ function createServer(store) {
       }
 
       // --- List bookings for a business (demo owner view) ---
-      // GET /bookings?businessId=...  (+ optional userId for role check in later phases)
+      // GET /bookings?businessId=... or ?userId=... (staff view: only
+      // the staff member's own appointments, Phase 3 staff login)
       if (req.method === 'GET' && path === '/bookings') {
         const businessId = url.searchParams.get('businessId');
-        if (!businessId) return sendJson(res, 400, { ok: false, error: 'businessId is required.' });
-        const list = (await store.getAppointments(businessId)).map((a) => ({
+        const userId = url.searchParams.get('userId');
+        if (!businessId && !userId) {
+          return sendJson(res, 400, { ok: false, error: 'businessId or userId is required.' });
+        }
+        const raw = userId
+          ? await store.getAppointmentsForUser(userId)
+          : await store.getAppointments(businessId);
+        const list = raw.map((a) => ({
+
           ...a,
           startTime: fmtMin(a.startMin),
           endTime: fmtMin(a.endMin),
@@ -144,7 +152,21 @@ function createServer(store) {
         return sendJson(res, 200, { ok: true, businesses: await store.listBusinesses() });
       }
 
-      // --- Verify a Firebase OTP login (Phase 3 Stage B) ---
+
+// --- Look up a user by verified phone (Phase 3 staff login) ---
+// GET /me?phone=... -> { ok, user } or 404. The app calls this
+// after /auth/verify so it knows the role (owner vs staff).
+if (req.method === 'GET' && path === '/me') {
+  const phone = url.searchParams.get('phone');
+  if (!phone) return sendJson(res, 400, { ok: false, error: 'phone is required.' });
+  const user = await store.getUserByPhone(phone);
+  if (!user) return sendJson(res, 404, { ok: false, error: 'No account for this phone.' });
+  return sendJson(res, 200, {
+    ok: true,
+    user: { id: user.id, name: user.name, role: user.role, businessId: user.businessId || null, staffId: user.staffId || null },
+  });
+}
+// --- Verify a Firebase OTP login (Phase 3 Stage B) ---
 // POST /auth/verify { idToken } -> { ok, uid, phone }
 // The app calls this right after OTP so the SERVER, not just
 // the app, confirms the phone number is real.
@@ -178,7 +200,7 @@ if (require.main === module) {
   server.listen(port, () => {
     console.log(`BookZen MVP backend (DEMO) listening on http://localhost:${port}`);
     console.log(process.env.DATABASE_URL ? 'Store: Postgres (DATABASE_URL set)' : 'Store: in-memory (data resets on restart — see SUPABASE-GUIDE.md for the real database)');
-    console.log('Endpoints: GET /health, POST /webhook, POST /signup, POST /admin/approve, GET /bookings, POST /auth/verify');
+console.log('Endpoints: GET /health, POST /webhook, POST /signup, POST /admin/approve, GET /bookings, POST /auth/verify, GET /me');
 
   });
 }

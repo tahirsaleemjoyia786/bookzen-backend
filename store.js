@@ -162,16 +162,28 @@ function createStore() {
     },
 
     // Owner view: an owner only sees their own business's appointments.
-    // Staff view is narrowed further by the caller (see server.js).
+    // Staff view: a staff member only sees appointments assigned to
+    // their own staff record (Phase 3 staff login).
     async getAppointmentsForUser(userId) {
       const user = users.find((u) => u.id === userId);
       if (!user) return [];
       if (user.role === 'SUPER_ADMIN') return appointments;
-      if (user.role === 'BUSINESS_OWNER' || user.role === 'STAFF') {
+      if (user.role === 'BUSINESS_OWNER') {
         return appointments.filter((a) => a.businessId === user.businessId);
+      }
+      if (user.role === 'STAFF') {
+        return appointments.filter(
+          (a) => a.businessId === user.businessId && a.staffId === user.staffId
+        );
       }
       return [];
     },
+
+    // Staff login: find a user by their verified phone number.
+    async getUserByPhone(phone) {
+      return users.find((u) => u.phone === phone) || null;
+    },
+
 
     async addAppointment(appt) {
       const row = { id: id('appt'), status: 'CONFIRMED', createdAt: new Date().toISOString(), ...appt };
