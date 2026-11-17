@@ -13,6 +13,7 @@ const http = require('http');
 const { createStore } = require('./store');
 const { tryBook, fmtMin } = require('./booking');
 const { verifyIdToken } = require('./firebase_auth');
+const { handleMetaWebhook } = require('./whatsapp');
 
 function sendJson(res, status, obj) {
   const body = JSON.stringify(obj, null, 2);
@@ -55,11 +56,35 @@ function createServer(store) {
         return sendJson(res, 200, { ok: true, app: 'BookZen MVP (DEMO)', demoOnly: true });
       }
 
-      // --- Simulated WhatsApp webhook ---
+      // --- Meta webhook verification (Phase 4) ---
+// Meta calls GET /webhook?hub.mode=subscribe&hub.verify_token=...
+// &hub.challenge=... when the webhook is saved in the app
+// dashboard. Answer with the challenge only when the verify
+// token matches WEBHOOK_VERIFY_TOKEN (set in Railway).
+if (req.method === 'GET' && path === '/webhook') {
+  const mode = url.searchParams.get('hub.mode');
+  const token = url.searchParams.get('hub.verify_token');
+  const challenge = url.searchParams.get('hub.challenge');
+  const expected = process.env.WEBHOOK_VERIFY_TOKEN;
+  if (mode === 'subscribe' && challenge && expected && token === expected) {
+    res.writeHead(200, { 'Content-Type': 'text/plain' });
+    return res.end(challenge);
+  }
+  return sendJson(res, 403, { ok: false, error: 'Webhook verification failed.' });
+}
+
+// --- Simulated WhatsApp webhook ---
       // POST /webhook  { businessId, customerPhone, customerName, text }
       // Simulates: customer sends a WhatsApp message -> bot replies -> booking.
       if (req.method === 'POST' && path === '/webhook') {
         const body = await readBody(req);
+// Real Meta format? -> handle with the WhatsApp helper and
+// always answer 200 (Meta retries anything else).
+if (body && body.object === 'whatsapp_business_account') {
+  await handleMetaWebhook(store, body);
+  return sendJson(res, 200, { ok: true });
+}
+
         const { businessId, customerPhone, customerName, text } = body;
         if (!businessId || !customerPhone || !text) {
           return sendJson(res, 400, { ok: false, error: 'businessId, customerPhone and text are required.' });
@@ -200,7 +225,8 @@ if (require.main === module) {
   server.listen(port, () => {
     console.log(`BookZen MVP backend (DEMO) listening on http://localhost:${port}`);
     console.log(process.env.DATABASE_URL ? 'Store: Postgres (DATABASE_URL set)' : 'Store: in-memory (data resets on restart — see SUPABASE-GUIDE.md for the real database)');
-console.log('Endpoints: GET /health, POST /webhook, POST /signup, POST /admin/approve, GET /bookings, POST /auth/verify, GET /me');
+console.log('Endpoints: GET /health, GET /webhook (Meta verify), POST /webhook, POST /signup, POST /admin/approve, GET /bookings, POST /auth/verify, GET /me');
+
 
   });
 }
