@@ -54,7 +54,59 @@ function createServer(store) {
 
       if (req.method === 'GET' && path === '/health') {
         return sendJson(res, 200, { ok: true, app: 'BookZen MVP (DEMO)', demoOnly: true });
-      }
+      }// --- Privacy Policy page (Phase 4: Meta needs a Privacy Policy
+// URL to switch the BarberZen app from Development to Live) ---
+// GET /privacy -> plain HTML page. This page itself collects nothing.
+if (req.method === 'GET' && path === '/privacy') {
+  const html = `<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BookZen — Privacy Policy</title>
+<style>body{font-family:Arial,sans-serif;max-width:720px;margin:40px auto;padding:0 20px;line-height:1.6;color:#222}h1{font-size:24px}h2{font-size:18px;margin-top:28px}</style>
+</head><body>
+<h1>BookZen — Privacy Policy</h1>
+<p><em>Last updated: 19 November 2026. BookZen is currently a demo / MVP.</em></p>
+<h2>What BookZen does</h2>
+<p>BookZen helps barbershops, salons and similar businesses take bookings
+and answer customers over WhatsApp. Customers message the business's
+WhatsApp number; BookZen records the booking and shows it to the business
+owner and staff in the BookZen app.</p>
+<h2>Data we collect</h2>
+<ul>
+<li>Business details: business name and type, owner name and phone number.</li>
+<li>Staff details: staff names and phone numbers added by the business owner.</li>
+<li>Bookings: service, staff member, date and time chosen by the customer.</li>
+<li>Messages: the WhatsApp messages a customer sends to the business to make
+or change a booking, and the replies sent back.</li>
+<li>Phone verification: phone numbers verified by one-time code (OTP) when
+an owner or staff member signs in.</li>
+</ul>
+<h2>How we use it</h2>
+<p>Only to take and manage bookings, show them to the business owner and
+staff, and reply to customers in chat. We do not sell personal data and we
+do not use it for advertising.</p>
+<h2>Third parties</h2>
+<ul>
+<li>Meta WhatsApp Cloud API — delivers the WhatsApp messages.</li>
+<li>Supabase (Postgres database) — stores businesses, services, staff and bookings.</li>
+<li>Firebase Authentication — verifies phone numbers by OTP at sign-in.</li>
+</ul>
+<p>Data is shared with these providers only as needed to run the service.</p>
+<h2>Keeping and deleting data</h2>
+<p>Booking data is kept while the business account is active. A customer can
+ask the business they booked with to delete their booking details; a business
+owner can ask the BookZen admin (through the app) to delete their business
+account and its data.</p>
+<h2>Children</h2>
+<p>BookZen is a tool for businesses and is not directed at children under 13.
+We do not knowingly collect data from children.</p>
+<h2>Changes to this policy</h2>
+<p>If this policy changes, the new version will be posted on this page with a
+new “last updated” date.</p>
+</body></html>`;
+  res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+  return res.end(html);
+}
 
       // --- Meta webhook verification (Phase 4) ---
 // Meta calls GET /webhook?hub.mode=subscribe&hub.verify_token=...
